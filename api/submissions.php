@@ -4,7 +4,7 @@
  * CIG Admin Dashboard - Submission Management
  */
 
-require_once '../db/connection.php';
+require_once '../db/config.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -99,10 +99,8 @@ class SubmissionAPI {
      * Reject Submission
      */
     public function rejectSubmission($submission_id, $reason = '') {
+        // rejection_reason column does not exist in schema — only update status
         $data = ['status' => 'rejected', 'updated_at' => date('Y-m-d H:i:s')];
-        if ($reason) {
-            $data['rejection_reason'] = $reason;
-        }
         return $this->db->update('submissions', $data, 'submission_id = ?', [$submission_id]);
     }
 

@@ -1,50 +1,360 @@
-// Submissions page functions
+// ============================================================
+//  submissions.js  –  Admin Submissions Page
+// ============================================================
 
-// Auto-search on input after DOM is ready
-function initAutoSearch() {
-  let searchDebounceTimer;
-  const searchForm = document.querySelector('.search-filter-form');
-  const searchInput = document.querySelector('.search-input');
-
-  if (searchInput && searchForm) {
-    searchInput.addEventListener('input', function() {
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(function() {
-        searchForm.submit();
-      }, 500); // Wait 500ms after user stops typing before submitting
+// ── Auto-search (debounced) ──────────────────────────────────
+(function initAutoSearch() {
+  let timer;
+  const form  = document.querySelector('.search-filter-form');
+  const input = document.querySelector('.search-input');
+  if (input && form) {
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(() => form.submit(), 500);
     });
+  }
+})();
+
+// Attach backdrop-click and Escape listeners once the modal exists in DOM
+// Uses a small poll so it works regardless of where the script tag is placed
+(function attachModalListeners() {
+  function tryAttach() {
+    const modal = document.getElementById('previewModal');
+    if (!modal) return; // not in DOM yet — wait
+    modal.addEventListener('click', function (e) {
+      if (e.target === this) closePreviewModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closePreviewModal();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryAttach);
+  } else {
+    tryAttach();
+  }
+})();
+
+
+// ============================================================
+//  PREVIEW MODAL  (ported from user-side document_tracking)
+// ============================================================
+
+/**
+ * openPreviewModal(id, ext, title, status)
+ * Called by the Preview button in the table row.
+ */
+function openPreviewModal(id, ext, title, status) {
+  const modal    = document.getElementById('previewModal');
+  const loading  = document.getElementById('previewLoading');
+  const loadMsg  = document.getElementById('previewLoadingMsg');
+  const errorDiv = document.getElementById('previewError');
+  const pdfFrame = document.getElementById('previewPdfFrame');
+  const docxWrap = document.getElementById('previewDocxWrap');
+  const titleEl  = document.getElementById('previewTitle');
+  const iconEl   = document.getElementById('previewFileIcon');
+
+  if (!modal) { console.error('previewModal element not found in page.'); return; }
+
+  // Reset state
+  loading.style.display  = 'flex';
+  loadMsg.textContent    = 'Loading document\u2026';
+  errorDiv.style.display = 'none';
+  pdfFrame.style.display = 'none';
+  docxWrap.style.display = 'none';
+  pdfFrame.src           = '';
+  docxWrap.innerHTML     = '';
+  titleEl.textContent    = title;
+  modal.style.display    = 'flex';
+
+  // File-type icon
+  const iconMap = { pdf:'fa-file-pdf', docx:'fa-file-word', doc:'fa-file-word', xlsx:'fa-file-excel', xls:'fa-file-excel' };
+  iconEl.className = 'fas ' + (iconMap[ext] || 'fa-file-alt');
+
+  // Bind approve / reject inside modal header
+  _bindModalActions(id, status);
+
+  // Preview URLs — adjust path prefix if your admin folder differs
+  const previewUrl = '../pages/file_preview.php?submission_id=' + id;
+  const convertUrl = '../pages/docx_to_pdf.php?submission_id='  + id;
+
+  if (ext === 'pdf') {
+    pdfFrame.src           = previewUrl;
+    pdfFrame.style.display = 'block';
+    loading.style.display  = 'none';
+    pdfFrame.onerror       = () => _showPreviewError('Failed to load PDF.');
+
+  } else if (ext === 'docx' || ext === 'doc') {
+    loadMsg.textContent    = 'Converting document\u2026';
+    pdfFrame.src           = convertUrl;
+    pdfFrame.style.display = 'block';
+    pdfFrame.onload        = () => { loading.style.display = 'none'; };
+    pdfFrame.onerror       = () => _showPreviewError('Failed to convert document.');
+
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (typeof XLSX === 'undefined') {
+      const s  = document.createElement('script');
+      s.src    = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = () => _loadXlsx(previewUrl, docxWrap, loading);
+      document.head.appendChild(s);
+    } else {
+      _loadXlsx(previewUrl, docxWrap, loading);
+    }
+
+  } else if (!ext) {
+    // No file attached — show metadata only, hide loading
+    loading.style.display = 'none';
+    docxWrap.innerHTML    = '<div style="padding:40px;text-align:center;color:#9ca3af;"><i class="fas fa-ban" style="font-size:2rem;margin-bottom:12px;display:block;"></i>No file attached to this submission.</div>';
+    docxWrap.style.display = 'block';
+
+  } else {
+    _showPreviewError('Preview not available for this file type.');
   }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAutoSearch);
-} else {
-  initAutoSearch();
+function closePreviewModal() {
+  const modal = document.getElementById('previewModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  document.getElementById('previewPdfFrame').src       = '';
+  document.getElementById('previewDocxWrap').innerHTML = '';
 }
 
-function filterTable() {
-  let searchInput = document.querySelector('.search-bar').value.toLowerCase();
-  let filterSelect = document.querySelector('.filter-select').value;
-  let table = document.querySelector('table tbody');
-  let rows = table.querySelectorAll('tr');
-  
-  rows.forEach(row => {
-    let text = row.innerText.toLowerCase();
-    let status = row.querySelector('.status') ? row.querySelector('.status').innerText : '';
-    
-    let matchesSearch = text.includes(searchInput);
-    let matchesFilter = filterSelect === '' || status === filterSelect;
-    
-    row.style.display = matchesSearch && matchesFilter ? '' : 'none';
-  });
+
+// ── Private helpers ──────────────────────────────────────────
+
+function _loadXlsx(url, wrap, loading) {
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error('Server error ' + r.status); return r.arrayBuffer(); })
+    .then(buf => {
+      const wb   = XLSX.read(new Uint8Array(buf), { type: 'array' });
+      let   html = '<style>table{border-collapse:collapse;font-size:.8rem;width:100%;}td,th{border:1px solid #ccc;padding:4px 8px;white-space:nowrap;}</style>';
+      wb.SheetNames.forEach(name => {
+        html += `<div style="padding:16px;"><h3 style="margin:0 0 8px;color:#047857;font-size:.9rem;">${name}</h3>`;
+        html += XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false });
+        html += '</div>';
+      });
+      wrap.innerHTML        = html;
+      wrap.style.display    = 'block';
+      loading.style.display = 'none';
+    })
+    .catch(e => _showPreviewError('Could not render spreadsheet: ' + e.message));
 }
 
-function approve(btn) {
-  let row = btn.parentElement.parentElement;
-  let status = row.querySelector(".status");
-  status.innerText = "Approved";
-  status.className = "status approved";
-  btn.remove();
-  alert("Submission Approved!");
+function _showPreviewError(msg) {
+  const loading = document.getElementById('previewLoading');
+  const errorDiv = document.getElementById('previewError');
+  const errorMsg = document.getElementById('previewErrorMsg');
+  if (loading)  loading.style.display  = 'none';
+  if (errorDiv) errorDiv.style.display = 'flex';
+  if (errorMsg) errorMsg.textContent   = msg;
 }
+
+// Re-bind approve/reject each time modal opens
+// Uses onclick directly to avoid stale duplicate listeners from addEventListener
+function _bindModalActions(id, status) {
+  const approveBtn = document.getElementById('modalApproveBtn');
+  const rejectBtn  = document.getElementById('modalRejectBtn');
+  if (!approveBtn || !rejectBtn) return;
+
+  approveBtn.disabled = (status === 'approved');
+  rejectBtn.disabled  = (status === 'rejected');
+
+  approveBtn.onclick = function() { closePreviewModal(); approveSubmission(id); };
+  rejectBtn.onclick  = function() { closePreviewModal(); rejectSubmission(id);  };
+}
+
+
+// ============================================================
+//  APPROVE
+// ============================================================
+function approveSubmission(id) {
+  _showConfirm(
+    '<i class="fas fa-check-circle" style="color:#10b981"></i> Approve Submission',
+    'Are you sure you want to <strong>approve</strong> this submission?',
+    'Approve', 'confirm-approve',
+    () => {
+      _callApi('approve', id)
+        .then(data => {
+          if (data.success) { _showToast('Submission approved successfully!', 'success'); _removeRow(id); }
+          else              { _showToast(data.message || 'Failed to approve.', 'error'); }
+        })
+        .catch(() => _showToast('Network error. Please try again.', 'error'));
+    }
+  );
+}
+
+
+// ============================================================
+//  REJECT  →  moves to Document Archive
+// ============================================================
+function rejectSubmission(id) {
+  _showConfirm(
+    '<i class="fas fa-times-circle" style="color:#ef4444"></i> Reject Submission',
+    'Are you sure you want to <strong>reject</strong> this submission?<br><small style="color:#6b7280">It will be moved to the Document Archive.</small>',
+    'Reject', 'confirm-reject',
+    () => {
+      _callApi('reject', id)
+        .then(data => {
+          if (data.success) { _showToast('Submission rejected and moved to archive.', 'success'); _removeRow(id); }
+          else              { _showToast(data.message || 'Failed to reject.', 'error'); }
+        })
+        .catch(() => _showToast('Network error. Please try again.', 'error'));
+    }
+  );
+}
+
+
+// ============================================================
+//  API HELPER
+// ============================================================
+function _callApi(action, submissionId) {
+  const form = new FormData();
+  form.append('action', action);
+  form.append('submission_id', submissionId);
+  return fetch('../api/submissions.php', { method: 'POST', body: form }).then(r => r.json());
+}
+
+
+// ============================================================
+//  TABLE ROW REMOVAL
+// ============================================================
+function _removeRow(id) {
+  // Match the Preview button by its onclick attribute
+  const btn = document.querySelector('button[onclick*="openPreviewModal(' + id + ',"]');
+  if (!btn) return;
+  const row = btn.closest('tr');
+  if (!row) return;
+  row.style.transition = 'opacity .4s ease, transform .4s ease';
+  row.style.opacity    = '0';
+  row.style.transform  = 'translateX(30px)';
+  setTimeout(() => {
+    row.remove();
+    const tbody = document.querySelector('table tbody');
+    if (tbody && !tbody.querySelector('tr')) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No submissions found</td></tr>';
+    }
+  }, 400);
+}
+
+
+// ============================================================
+//  CONFIRM DIALOG
+// ============================================================
+let _confirmOverlay = null;
+
+function _showConfirm(title, message, confirmLabel, confirmClass, onConfirm) {
+  if (!_confirmOverlay) {
+    _confirmOverlay = document.createElement('div');
+    _confirmOverlay.id = 'confirmOverlay';
+    document.body.appendChild(_confirmOverlay);
+  }
+  _confirmOverlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-title">${title}</div>
+      <div class="confirm-body">${message}</div>
+      <div class="confirm-footer">
+        <button id="confirmOkBtn"     class="confirm-btn ${confirmClass}">${confirmLabel}</button>
+        <button id="confirmCancelBtn" class="confirm-btn confirm-cancel">Cancel</button>
+      </div>
+    </div>`;
+  _confirmOverlay.style.display = 'flex';
+  document.body.style.overflow  = 'hidden';
+  document.getElementById('confirmOkBtn').onclick     = () => { _closeConfirm(); onConfirm(); };
+  document.getElementById('confirmCancelBtn').onclick = _closeConfirm;
+}
+
+function _closeConfirm() {
+  if (_confirmOverlay) _confirmOverlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+
+// ============================================================
+//  TOAST
+// ============================================================
+function _showToast(message, type) {
+  const old = document.getElementById('subToast');
+  if (old) old.remove();
+  const c = {
+    success: { bg: '#10b981', icon: 'fa-check-circle'  },
+    error:   { bg: '#ef4444', icon: 'fa-times-circle'  },
+    info:    { bg: '#3b82f6', icon: 'fa-info-circle'   }
+  }[type] || { bg: '#3b82f6', icon: 'fa-info-circle' };
+  const t = document.createElement('div');
+  t.id = 'subToast';
+  t.innerHTML = `<i class="fas ${c.icon}"></i> ${message}`;
+  t.style.cssText = `position:fixed;bottom:30px;right:30px;z-index:99999;background:${c.bg};color:#fff;padding:13px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);display:flex;align-items:center;gap:10px;animation:toastIn .3s ease;max-width:360px;`;
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toastOut .3s ease forwards';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+
+// ============================================================
+//  INJECTED STYLES
+// ============================================================
+(function () {
+  const s = document.createElement('style');
+  s.textContent = `
+    @keyframes toastIn  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes toastOut { from{opacity:1;transform:translateY(0)}     to{opacity:0;transform:translateY(20px)} }
+    @keyframes modalIn  { from{opacity:0;transform:scale(.93) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    /* ── Confirm overlay ── */
+    #confirmOverlay {
+      display:none;position:fixed;inset:0;z-index:10000;
+      background:rgba(0,0,0,.5);backdrop-filter:blur(3px);
+      align-items:center;justify-content:center;
+    }
+    .confirm-box {
+      background:#fff;border-radius:14px;padding:28px 26px;
+      width:90%;max-width:400px;
+      box-shadow:0 16px 50px rgba(0,0,0,.22);
+      animation:modalIn .25s ease;
+    }
+    .confirm-title { font-size:17px;font-weight:700;color:#1f2937;margin-bottom:12px;display:flex;align-items:center;gap:9px; }
+    .confirm-body  { font-size:14px;color:#4b5563;line-height:1.6;margin-bottom:22px; }
+    .confirm-footer{ display:flex;gap:10px;justify-content:flex-end; }
+    .confirm-btn   { padding:9px 18px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:transform .15s;color:#fff; }
+    .confirm-btn:hover { transform:translateY(-2px); }
+    .confirm-approve { background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 3px 10px rgba(16,185,129,.35); }
+    .confirm-reject  { background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 3px 10px rgba(239,68,68,.35); }
+    .confirm-cancel  { background:linear-gradient(135deg,#6b7280,#4b5563);box-shadow:0 3px 10px rgba(107,114,128,.3); }
+
+    /* ── Modal header action buttons ── */
+    .modal-action-btn {
+      display:inline-flex;align-items:center;gap:6px;
+      padding:7px 16px;border:none;border-radius:7px;
+      font-size:13px;font-weight:700;cursor:pointer;color:#fff;
+      transition:transform .15s,filter .15s;white-space:nowrap;
+    }
+    .modal-action-btn:disabled { opacity:.45;cursor:not-allowed;transform:none!important; }
+    .modal-action-btn:hover:not(:disabled) { transform:translateY(-1px);filter:brightness(1.1); }
+    #modalApproveBtn { background:linear-gradient(135deg,#10b981,#059669); }
+    #modalRejectBtn  { background:linear-gradient(135deg,#ef4444,#dc2626); }
+
+    /* ── DOCX rendering fixes ── */
+    #previewDocxWrap { background:#e8e8e8; }
+    #previewDocxWrap .docx-wrapper { background:#e8e8e8!important;padding:16px!important; }
+    #previewDocxWrap .docx-wrapper>section.docx {
+      width:100%!important;max-width:900px!important;min-height:auto!important;
+      margin:0 auto 16px!important;padding:72px 90px!important;
+      box-shadow:0 2px 12px rgba(0,0,0,.2)!important;
+      box-sizing:border-box!important;overflow:visible!important;background:#fff!important;
+    }
+    #previewDocxWrap img, #previewDocxWrap svg image {
+      max-width:100%!important;height:auto!important;
+      visibility:visible!important;display:inline-block!important;
+    }
+    #previewDocxWrap table { max-width:100%!important;table-layout:fixed!important;word-break:break-word!important; }
+    #previewDocxWrap [style*="position:absolute"],
+    #previewDocxWrap [style*="position: absolute"] {
+      position:relative!important;left:auto!important;top:auto!important;
+      transform:none!important;margin:0!important;
+    }
+  `;
+  document.head.appendChild(s);
+})();

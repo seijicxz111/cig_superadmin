@@ -1,28 +1,23 @@
 <?php
 /**
  * CIG Admin Dashboard - Submissions Page
- * Displays all submissions with database integration
  */
 
 session_start();
 require_once '../db/config.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['admin_logged_in'])) {
     header('Location: login.php');
     exit();
 }
 
-$db = new Database();
+$db   = new Database();
 $user = ['full_name' => $_SESSION['admin_email'] ?? 'Admin'];
 
-// Get filter parameters
-$status_filter = $_GET['status'] ?? null;
 $search_query = $_GET['search'] ?? '';
 
-// Build query - Only show pending and in_review submissions
-$query = "
-    SELECT s.*, u.full_name as submitted_by_name, o.org_name 
+$query  = "
+    SELECT s.*, u.full_name as submitted_by_name, o.org_name
     FROM submissions s
     LEFT JOIN users u ON s.user_id = u.user_id
     LEFT JOIN organizations o ON s.org_id = o.org_id
@@ -31,11 +26,10 @@ $query = "
 $params = [];
 
 if ($search_query) {
-    $query .= " AND (s.title LIKE ? OR o.org_name LIKE ?)";
+    $query   .= " AND (s.title LIKE ? OR o.org_name LIKE ?)";
     $params[] = "%$search_query%";
     $params[] = "%$search_query%";
 }
-
 $query .= " ORDER BY s.submitted_at DESC";
 
 try {
@@ -45,53 +39,26 @@ try {
     $submissions = [];
 }
 
-// Sample submissions for demonstration (pending and in_review only)
+// Sample data shown only when DB is empty
 $sample_submissions = [
-    [
-        'submission_id' => 1,
-        'title' => 'New Library Computer Lab Setup',
-        'org_name' => 'Technology Department',
-        'status' => 'pending',
-        'submitted_by_name' => 'David Martinez',
-        'submitted_at' => date('Y-m-d H:i:s', strtotime('-5 days'))
-    ],
-    [
-        'submission_id' => 2,
-        'title' => 'Campus Safety Improvement Proposal',
-        'org_name' => 'Security Committee',
-        'status' => 'in_review',
-        'submitted_by_name' => 'Maria Cruz',
-        'submitted_at' => date('Y-m-d H:i:s', strtotime('-3 days'))
-    ],
-    [
-        'submission_id' => 3,
-        'title' => 'Budget Allocation for School Events',
-        'org_name' => 'Finance Board',
-        'status' => 'pending',
-        'submitted_by_name' => 'Robert Tanaka',
-        'submitted_at' => date('Y-m-d H:i:s', strtotime('-1 day'))
-    ],
-    [
-        'submission_id' => 4,
-        'title' => 'Renovation Plan - Student Center',
-        'org_name' => 'Facilities Management',
-        'status' => 'in_review',
-        'submitted_by_name' => 'Lisa Anderson',
-        'submitted_at' => date('Y-m-d H:i:s', strtotime('-2 days'))
-    ],
-    [
-        'submission_id' => 5,
-        'title' => 'Parking Expansion Initiative',
-        'org_name' => 'Transportation Services',
-        'status' => 'pending',
-        'submitted_by_name' => 'James Park',
-        'submitted_at' => date('Y-m-d H:i:s', strtotime('-4 days'))
-    ]
+    ['submission_id'=>1,'title'=>'New Library Computer Lab Setup',      'org_name'=>'Technology Department', 'status'=>'pending',   'submitted_by_name'=>'David Martinez','submitted_at'=>date('Y-m-d H:i:s',strtotime('-5 days')),'file_name'=>'lab_setup.docx'],
+    ['submission_id'=>2,'title'=>'Campus Safety Improvement Proposal',  'org_name'=>'Security Committee',    'status'=>'in_review', 'submitted_by_name'=>'Maria Cruz',    'submitted_at'=>date('Y-m-d H:i:s',strtotime('-3 days')),'file_name'=>'safety.pdf'],
+    ['submission_id'=>3,'title'=>'Budget Allocation for School Events',  'org_name'=>'Finance Board',         'status'=>'pending',   'submitted_by_name'=>'Robert Tanaka', 'submitted_at'=>date('Y-m-d H:i:s',strtotime('-1 day')), 'file_name'=>'budget.xlsx'],
+    ['submission_id'=>4,'title'=>'Renovation Plan - Student Center',     'org_name'=>'Facilities Management', 'status'=>'in_review', 'submitted_by_name'=>'Lisa Anderson', 'submitted_at'=>date('Y-m-d H:i:s',strtotime('-2 days')),'file_name'=>'renovation.docx'],
+    ['submission_id'=>5,'title'=>'Parking Expansion Initiative',         'org_name'=>'Transportation Services','status'=>'pending',   'submitted_by_name'=>'James Park',    'submitted_at'=>date('Y-m-d H:i:s',strtotime('-4 days')),'file_name'=>'parking.pdf'],
 ];
 
-// Use sample submissions if no real submissions exist
 if (empty($submissions)) {
     $submissions = $sample_submissions;
+}
+
+// Helper: safely build the openPreviewModal() onclick attribute
+function previewOnclick($s) {
+    $id     = (int) $s['submission_id'];
+    $ext    = strtolower(pathinfo($s['file_name'] ?? '', PATHINFO_EXTENSION));
+    $title  = addslashes(strip_tags($s['title']));
+    $status = $s['status'];
+    return "openPreviewModal({$id},'{$ext}','{$title}','{$status}')";
 }
 ?>
 <!DOCTYPE html>
@@ -108,23 +75,24 @@ if (empty($submissions)) {
 </head>
 <body>
 
-<?php 
+<?php
 $current_page = 'submissions';
-$user_name = $user['full_name'] ?? '';
+$user_name    = $user['full_name'] ?? '';
 ?>
 <?php include 'navbar.php'; ?>
 
-  <!-- SUBMISSIONS -->
+  <!-- SUBMISSIONS PAGE -->
   <div class="page active">
     <div class="page-header">
       <h2><i class="fas fa-file-alt"></i> Submissions</h2>
     </div>
-    
+
     <div class="search-filter-container">
       <form method="GET" class="search-filter-form">
         <div class="search-input-wrapper">
           <i class="fas fa-search search-icon"></i>
-          <input type="text" name="search" placeholder="Search submissions..." value="<?php echo htmlspecialchars($search_query); ?>" class="search-input">
+          <input type="text" name="search" placeholder="Search submissions..."
+                 value="<?php echo htmlspecialchars($search_query); ?>" class="search-input">
         </div>
       </form>
     </div>
@@ -144,26 +112,24 @@ $user_name = $user['full_name'] ?? '';
         </thead>
         <tbody>
           <?php if (!empty($submissions)): ?>
-            <?php foreach ($submissions as $index => $submission): ?>
+            <?php foreach ($submissions as $index => $sub): ?>
               <tr>
                 <td class="ref-number">#<?php echo str_pad($index + 1, 3, '0', STR_PAD_LEFT); ?></td>
-                <td><?php echo htmlspecialchars($submission['org_name'] ?? 'N/A'); ?></td>
-                <td class="title-cell"><strong><?php echo htmlspecialchars($submission['title']); ?></strong></td>
+                <td><?php echo htmlspecialchars($sub['org_name'] ?? 'N/A'); ?></td>
+                <td class="title-cell"><strong><?php echo htmlspecialchars($sub['title']); ?></strong></td>
                 <td>
-                  <span class="status-badge <?php echo strtolower($submission['status']); ?>">
-                    <i class="fas fa-circle"></i> <?php echo ucfirst(str_replace('_', ' ', $submission['status'])); ?>
+                  <span class="status-badge <?php echo strtolower($sub['status']); ?>">
+                    <i class="fas fa-circle"></i>
+                    <?php echo ucfirst(str_replace('_', ' ', $sub['status'])); ?>
                   </span>
                 </td>
-                <td><?php echo htmlspecialchars($submission['submitted_by_name'] ?? 'N/A'); ?></td>
-                <td><?php echo date('M d, Y', strtotime($submission['submitted_at'])); ?></td>
+                <td><?php echo htmlspecialchars($sub['submitted_by_name'] ?? 'N/A'); ?></td>
+                <td><?php echo date('M d, Y', strtotime($sub['submitted_at'])); ?></td>
                 <td>
                   <div class="action-buttons">
-                    <a href="#" onclick="previewSubmission(<?php echo $submission['submission_id']; ?>); return false;" class="btn-action btn-view" title="Preview"><i class="fas fa-eye"></i> Preview</a>
-                    <button class="btn-action btn-approve" onclick="approveSubmission(<?php echo $submission['submission_id']; ?>)" title="Approve" <?php echo in_array($submission['status'], ['approved']) ? 'disabled' : ''; ?>>
-                      <i class="fas fa-check"></i> Approve
-                    </button>
-                    <button class="btn-action btn-reject" onclick="rejectSubmission(<?php echo $submission['submission_id']; ?>)" title="Reject" <?php echo in_array($submission['status'], ['rejected']) ? 'disabled' : ''; ?>>
-                      <i class="fas fa-times"></i> Reject
+                    <button class="btn-action btn-view"
+                            onclick="<?php echo previewOnclick($sub); ?>">
+                      <i class="fas fa-eye"></i> Preview
                     </button>
                   </div>
                 </td>
@@ -178,28 +144,86 @@ $user_name = $user['full_name'] ?? '';
       </table>
     </div>
   </div>
+
   <?php include 'footer.php'; ?>
-</div>
+</div><!-- /.wrapper -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     DOCUMENT PREVIEW MODAL
+     ══════════════════════════════════════════════════════════ -->
+<div id="previewModal"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+
+  <div style="background:#fff;border-radius:10px;width:92vw;max-width:1060px;
+              height:90vh;display:flex;flex-direction:column;overflow:hidden;
+              box-shadow:0 8px 40px rgba(0,0,0,.4);">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:13px 18px;background:#047857;color:#fff;flex-shrink:0;gap:12px;">
+
+      <!-- File icon + title -->
+      <div style="display:flex;align-items:center;gap:9px;min-width:0;flex:1;">
+        <i id="previewFileIcon" class="fas fa-file-alt" style="font-size:1.1rem;flex-shrink:0;"></i>
+        <span id="previewTitle"
+              style="font-size:.95rem;font-weight:600;overflow:hidden;
+                     text-overflow:ellipsis;white-space:nowrap;"></span>
+      </div>
+
+      <!-- Approve / Reject -->
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <button id="modalApproveBtn" class="modal-action-btn">
+          <i class="fas fa-check"></i> Approve
+        </button>
+        <button id="modalRejectBtn" class="modal-action-btn">
+          <i class="fas fa-times"></i> Reject
+        </button>
+      </div>
+
+      <!-- Close -->
+      <button onclick="closePreviewModal()"
+              style="background:none;border:none;color:#fff;font-size:1.5rem;
+                     cursor:pointer;line-height:1;flex-shrink:0;">&times;</button>
+    </div>
+
+    <!-- Loading spinner -->
+    <div id="previewLoading"
+         style="display:flex;flex-direction:column;align-items:center;
+                justify-content:center;flex:1;gap:12px;color:#666;">
+      <i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#047857;"></i>
+      <span id="previewLoadingMsg" style="font-size:.9rem;">Loading document&hellip;</span>
+    </div>
+
+    <!-- Error state -->
+    <div id="previewError"
+         style="display:none;flex-direction:column;align-items:center;
+                justify-content:center;flex:1;gap:10px;color:#c0392b;">
+      <i class="fas fa-exclamation-triangle" style="font-size:2rem;"></i>
+      <span id="previewErrorMsg"
+            style="font-size:.9rem;text-align:center;max-width:400px;"></span>
+    </div>
+
+    <!-- PDF iframe -->
+    <iframe id="previewPdfFrame"
+            style="display:none;flex:1;border:none;width:100%;"></iframe>
+
+    <!-- DOCX / XLSX rendered output -->
+    <div id="previewDocxWrap"
+         style="display:none;flex:1;overflow:auto;"></div>
+
+  </div>
+</div><!-- /#previewModal -->
+
 
 <script src="../js/navbar.js"></script>
 <script src="../js/submissions.js"></script>
 
 <script>
 function toggleNotificationPanel() {
-    const panel = document.getElementById('notificationPanel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-}
-
-function previewSubmission(id) {
-    console.log('Preview submission: ' + id);
-}
-
-function approveSubmission(id) {
-    console.log('Approve submission: ' + id);
-}
-
-function rejectSubmission(id) {
-    console.log('Reject submission: ' + id);
+    var panel = document.getElementById('notificationPanel');
+    if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 </script>
 </body>
