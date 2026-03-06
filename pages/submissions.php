@@ -93,10 +93,10 @@ $user_name    = $user['full_name'] ?? '';
           <tr>
             <th><i class="fas fa-hashtag"></i> Ref No</th>
             <th><i class="fas fa-building"></i> Organization</th>
-            <th><i class="fas fa-file-alt"></i> Title</th>
+            <th><i class="fas fa-file-alt"></i> Title & Type</th>
             <th><i class="fas fa-tag"></i> Status</th>
             <th><i class="fas fa-user"></i> Submitted By</th>
-            <th><i class="fas fa-calendar"></i> Date</th>
+            <th><i class="fas fa-calendar"></i> Date & Time</th>
             <th><i class="fas fa-cog"></i> Action</th>
           </tr>
         </thead>
@@ -106,7 +106,41 @@ $user_name    = $user['full_name'] ?? '';
               <tr>
                 <td class="ref-number">#<?php echo str_pad($index + 1, 3, '0', STR_PAD_LEFT); ?></td>
                 <td><?php echo htmlspecialchars($sub['org_name'] ?? 'N/A'); ?></td>
-                <td class="title-cell"><strong><?php echo htmlspecialchars($sub['title']); ?></strong></td>
+                <td class="title-cell">
+                  <?php
+                    $ext = strtolower(pathinfo($sub['file_name'] ?? '', PATHINFO_EXTENSION));
+                    $badgeMap = [
+                      'pdf'  => ['PDF',  '#e74c3c'],
+                      'docx' => ['DOCX', '#2980b9'],
+                      'doc'  => ['DOC',  '#2980b9'],
+                      'xlsx' => ['XLSX', '#27ae60'],
+                      'xls'  => ['XLS',  '#27ae60'],
+                    ];
+                    $iconMap = [
+                      'pdf'  => 'fa-file-pdf',
+                      'docx' => 'fa-file-word',
+                      'doc'  => 'fa-file-word',
+                      'xlsx' => 'fa-file-excel',
+                      'xls'  => 'fa-file-excel',
+                    ];
+                    [$badgeLabel, $badgeColor] = $badgeMap[$ext] ?? [strtoupper($ext) ?: '—', '#7f8c8d'];
+                    $iconClass = $iconMap[$ext] ?? 'fa-file-alt';
+                  ?>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <i class="fas <?php echo $iconClass; ?>"
+                       style="font-size:1.3rem;color:<?php echo $badgeColor; ?>;flex-shrink:0;"></i>
+                    <div>
+                      <strong><?php echo htmlspecialchars($sub['title']); ?></strong>
+                      <div style="margin-top:3px;">
+                        <span style="background:<?php echo $badgeColor; ?>;color:#fff;
+                                     font-size:.68rem;font-weight:700;padding:2px 7px;
+                                     border-radius:4px;letter-spacing:.04em;">
+                          <?php echo $badgeLabel; ?>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
                 <td>
                   <span class="status-badge <?php echo strtolower($sub['status']); ?>">
                     <i class="fas fa-circle"></i>
@@ -114,7 +148,13 @@ $user_name    = $user['full_name'] ?? '';
                   </span>
                 </td>
                 <td><?php echo htmlspecialchars($sub['submitted_by_name'] ?? 'N/A'); ?></td>
-                <td><?php echo date('M d, Y', strtotime($sub['submitted_at'])); ?></td>
+                <td>
+                  <div><?php echo date('M d, Y', strtotime($sub['submitted_at'])); ?></div>
+                  <small style="color:#888;font-size:.78rem;">
+                    <i class="far fa-clock"></i>
+                    <?php echo date('h:i A', strtotime($sub['submitted_at'])); ?>
+                  </small>
+                </td>
                 <td>
                   <div class="action-buttons">
                     <button class="btn-action btn-view"

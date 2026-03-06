@@ -186,22 +186,115 @@ function approveSubmission(id) {
 
 
 // ============================================================
-//  REJECT  →  moves to Document Archive
+//  REJECT  →  opens comment modal first
 // ============================================================
 function rejectSubmission(id) {
-  _showConfirm(
-    '<i class="fas fa-times-circle" style="color:#ef4444"></i> Reject Submission',
-    'Are you sure you want to <strong>reject</strong> this submission?<br><small style="color:#6b7280">It will be moved to the Document Archive.</small>',
-    'Reject', 'confirm-reject',
-    () => {
-      _callApi('reject', id)
-        .then(data => {
-          if (data.success) { _showToast('Submission rejected and moved to archive.', 'success'); _removeRow(id); }
-          else              { _showToast(data.message || 'Failed to reject.', 'error'); }
-        })
-        .catch(() => _showToast('Network error. Please try again.', 'error'));
-    }
-  );
+  _showRejectModal(id);
+}
+
+function _showRejectModal(id) {
+  let overlay = document.getElementById('rejectCommentOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'rejectCommentOverlay';
+    document.body.appendChild(overlay);
+  }
+
+  const QUICK_REASONS = [
+    'Incomplete documentation',
+    'Does not meet requirements',
+    'Duplicate submission',
+    'Incorrect format',
+    'Missing signatures or approvals',
+  ];
+
+  overlay.innerHTML = `
+    <div class="reject-modal-box">
+      <div class="reject-modal-header">
+        <span class="reject-modal-icon"><i class="fas fa-times-circle"></i></span>
+        <div>
+          <div class="reject-modal-title">Reject Submission</div>
+          <div class="reject-modal-subtitle">Provide a reason so the submitter can revise and resubmit.</div>
+        </div>
+        <button class="reject-modal-close" onclick="_closeRejectModal()">&times;</button>
+      </div>
+
+      <div class="reject-modal-body">
+        <div class="reject-quick-label">Quick reasons</div>
+        <div class="reject-quick-list">
+          ${QUICK_REASONS.map(r => `<button class="reject-quick-btn" onclick="_fillRejectReason('${r}')">${r}</button>`).join('')}
+        </div>
+
+        <label class="reject-textarea-label" for="rejectReasonText">
+          Rejection comment <span style="color:#ef4444">*</span>
+        </label>
+        <textarea id="rejectReasonText" class="reject-textarea"
+                  placeholder="Describe the issue and what the submitter should do to correct it…"
+                  maxlength="500" oninput="_updateRejectCharCount(this)"></textarea>
+        <div class="reject-char-count"><span id="rejectCharCount">0</span> / 500</div>
+      </div>
+
+      <div class="reject-modal-footer">
+        <button class="confirm-btn confirm-cancel" onclick="_closeRejectModal()">
+          <i class="fas fa-arrow-left"></i> Cancel
+        </button>
+        <button class="confirm-btn confirm-reject" id="rejectSubmitBtn" onclick="_submitRejection(${id})">
+          <i class="fas fa-times"></i> Reject Submission
+        </button>
+      </div>
+    </div>`;
+
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('rejectReasonText')?.focus(), 100);
+}
+
+function _fillRejectReason(text) {
+  const ta = document.getElementById('rejectReasonText');
+  if (!ta) return;
+  ta.value = text;
+  _updateRejectCharCount(ta);
+}
+
+function _updateRejectCharCount(ta) {
+  const el = document.getElementById('rejectCharCount');
+  if (el) el.textContent = ta.value.length;
+}
+
+function _closeRejectModal() {
+  const overlay = document.getElementById('rejectCommentOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function _submitRejection(id) {
+  const ta     = document.getElementById('rejectReasonText');
+  const reason = ta ? ta.value.trim() : '';
+
+  if (!reason) {
+    ta.classList.add('reject-textarea-error');
+    ta.placeholder = 'A rejection reason is required before submitting.';
+    ta.focus();
+    return;
+  }
+
+  const btn = document.getElementById('rejectSubmitBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting…'; }
+
+  _callApiWithReason('reject', id, reason)
+    .then(data => {
+      _closeRejectModal();
+      if (data.success) {
+        _showToast('Submission rejected and moved to archive.', 'success');
+        _removeRow(id);
+      } else {
+        _showToast(data.message || 'Failed to reject.', 'error');
+      }
+    })
+    .catch(() => {
+      _closeRejectModal();
+      _showToast('Network error. Please try again.', 'error');
+    });
 }
 
 
@@ -212,6 +305,14 @@ function _callApi(action, submissionId) {
   const form = new FormData();
   form.append('action', action);
   form.append('submission_id', submissionId);
+  return fetch('../api/submissions.php', { method: 'POST', body: form }).then(r => r.json());
+}
+
+function _callApiWithReason(action, submissionId, reason) {
+  const form = new FormData();
+  form.append('action', action);
+  form.append('submission_id', submissionId);
+  form.append('reason', reason);
   return fetch('../api/submissions.php', { method: 'POST', body: form }).then(r => r.json());
 }
 
@@ -336,7 +437,61 @@ function _showToast(message, type) {
     #modalApproveBtn { background:linear-gradient(135deg,#10b981,#059669); }
     #modalRejectBtn  { background:linear-gradient(135deg,#ef4444,#dc2626); }
 
-    /* ── DOCX rendering fixes ── */
+    /* ── Reject-comment modal ── */
+    #rejectCommentOverlay {
+      display:none;position:fixed;inset:0;z-index:10001;
+      background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+      align-items:center;justify-content:center;padding:16px;
+    }
+    .reject-modal-box {
+      background:#fff;border-radius:16px;width:100%;max-width:520px;
+      box-shadow:0 20px 60px rgba(0,0,0,.28);
+      animation:modalIn .25s ease;overflow:hidden;
+    }
+    .reject-modal-header {
+      display:flex;align-items:flex-start;gap:13px;
+      padding:20px 22px 18px;background:#fef2f2;border-bottom:1px solid #fecaca;
+      position:relative;
+    }
+    .reject-modal-icon { font-size:1.6rem;color:#ef4444;flex-shrink:0;margin-top:2px; }
+    .reject-modal-title { font-size:16px;font-weight:700;color:#1f2937; }
+    .reject-modal-subtitle { font-size:12.5px;color:#6b7280;margin-top:3px;line-height:1.4; }
+    .reject-modal-close {
+      position:absolute;top:14px;right:16px;
+      background:none;border:none;font-size:1.4rem;color:#9ca3af;
+      cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;
+      transition:background .15s,color .15s;
+    }
+    .reject-modal-close:hover { background:#fee2e2;color:#ef4444; }
+
+    .reject-modal-body { padding:20px 22px; }
+    .reject-quick-label { font-size:11.5px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px; }
+    .reject-quick-list  { display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px; }
+    .reject-quick-btn {
+      padding:6px 12px;border:1.5px solid #fca5a5;border-radius:20px;
+      background:#fff;color:#dc2626;font-size:12px;font-weight:600;
+      cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap;
+    }
+    .reject-quick-btn:hover { background:#fee2e2;transform:translateY(-1px); }
+
+    .reject-textarea-label { display:block;font-size:13px;font-weight:700;color:#374151;margin-bottom:7px; }
+    .reject-textarea {
+      width:100%;height:110px;padding:11px 13px;
+      border:1.5px solid #d1d5db;border-radius:9px;
+      font-size:13.5px;color:#1f2937;resize:vertical;
+      font-family:inherit;line-height:1.55;box-sizing:border-box;
+      transition:border-color .2s,box-shadow .2s;outline:none;
+    }
+    .reject-textarea:focus { border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12); }
+    .reject-textarea-error { border-color:#ef4444!important; }
+    .reject-char-count { text-align:right;font-size:11.5px;color:#9ca3af;margin-top:5px; }
+
+    .reject-modal-footer {
+      display:flex;justify-content:flex-end;gap:10px;
+      padding:15px 22px;background:#f9fafb;border-top:1px solid #f3f4f6;
+    }
+
+
     #previewDocxWrap { background:#e8e8e8; }
     #previewDocxWrap .docx-wrapper { background:#e8e8e8!important;padding:16px!important; }
     #previewDocxWrap .docx-wrapper>section.docx {
