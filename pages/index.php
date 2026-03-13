@@ -95,7 +95,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     <div class="announcement-board-inner">
       <div class="announcement-header">
         <div class="announcement-header-left">
-          <div class="announcement-icon"><i class="fas fa-bell"></i></div>
+          <div class="announcement-icon"><i class="fas fa-bullhorn"></i></div>
           <div class="announcement-header-text">
             <h3>Latest Announcements</h3>
             <span class="announcement-subtitle">Important updates and notices</span>
@@ -176,10 +176,10 @@ while ($row = mysqli_fetch_assoc($result)) {
                 <?php if ($audience): ?>
                   <small class="ann-audience-tag"><i class="fas fa-users"></i> <?php echo $audience; ?></small>
                 <?php else: ?>
-                  <small style="color:#aaa;"><i class="fas fa-globe"></i> All orgs</small>
+                  <small style="color:#aaa;"><i class="fas fa-globe"></i> All organizations</small>
                 <?php endif; ?>
                 <?php if ($expires): ?>
-                  <small class="ann-expires-tag"><i class="fas fa-hourglass-end"></i> Expires <?php echo $expires; ?></small>
+                  <small class="ann-expires-tag"><i class="fas fa-hourglass-half"></i> Expires <?php echo $expires; ?></small>
                 <?php endif; ?>
               </div>
             </div>
@@ -195,7 +195,7 @@ while ($row = mysqli_fetch_assoc($result)) {
       <div class="value-card-new mission">
         <div class="card-image-header" style="background: linear-gradient(135deg, #1e90ff 0%, #00bfff 100%); position: relative; overflow: hidden;">
           <div class="hexagon-icon">
-            <i class="fas fa-rocket" style="font-size: 48px; color: #1e90ff;"></i>
+            <i class="fas fa-bullseye" style="font-size: 48px; color: #1e90ff;"></i>
           </div>
         </div>
         <div class="card-title-section"><h3>MISSION</h3></div>
@@ -207,7 +207,7 @@ while ($row = mysqli_fetch_assoc($result)) {
       <div class="value-card-new vision">
         <div class="card-image-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff1744 100%); position: relative; overflow: hidden;">
           <div class="hexagon-icon">
-            <i class="fas fa-eye" style="font-size: 48px; color: #ff6b6b;"></i>
+            <i class="fas fa-binoculars" style="font-size: 48px; color: #ff6b6b;"></i>
           </div>
         </div>
         <div class="card-title-section"><h3>VISION</h3></div>
@@ -219,14 +219,14 @@ while ($row = mysqli_fetch_assoc($result)) {
       <div class="value-card-new values">
         <div class="card-image-header" style="background: linear-gradient(135deg, #ff9500 0%, #ff6f00 100%); position: relative; overflow: hidden;">
           <div class="hexagon-icon">
-            <i class="fas fa-heart" style="font-size: 48px; color: #ff9500;"></i>
+            <i class="fas fa-scale-balanced" style="font-size: 48px; color: #ff9500;"></i>
           </div>
         </div>
         <div class="card-title-section"><h3>VALUES</h3></div>
         <div class="card-description">
           <ul style="list-style: none; padding: 0; text-align: left;">
-            <li style="padding: 6px 0;"><strong>SERVICE</strong> - Dedicated to serving our communities</li>
-            <li style="padding: 6px 0;"><strong>VOLUNTEERISM</strong> - Active participation and commitment</li>
+            <li style="padding: 6px 0;"><i class="fas fa-hand-holding-heart" style="margin-right: 8px; color: #ff9500;"></i><strong>SERVICE</strong> - Dedicated to serving our communities</li>
+            <li style="padding: 6px 0;"><i class="fas fa-handshake" style="margin-right: 8px; color: #ff9500;"></i><strong>VOLUNTEERISM</strong> - Active participation and commitment</li>
           </ul>
         </div>
       </div>
@@ -273,36 +273,36 @@ while ($row = mysqli_fetch_assoc($result)) {
       <label style="display:block;margin:14px 0 6px;font-weight:600;">Priority</label>
       <select id="annPriorityInput"
         style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;background:#fff;cursor:pointer;">
-        <option value="low" selected>🔵 Low — Minor updates</option>
-        <option value="high">🟡 High — Requires attention</option>
-        <option value="urgent">🔴 Urgent — Immediate action needed</option>
+        <option value="low" selected><i class="fas fa-flag"></i> Low — Minor updates</option>
+        <option value="high"><i class="fas fa-exclamation"></i> High — Requires attention</option>
+        <option value="urgent"><i class="fas fa-exclamation-triangle"></i> Urgent — Immediate action needed</option>
       </select>
 
       <label style="display:block;margin:14px 0 6px;font-weight:600;">Category</label>
       <select id="annCategoryInput"
         style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;background:#fff;cursor:pointer;">
-        <option value="general" selected>📋 General</option>
-        <option value="event">📅 Event</option>
-        <option value="deadline">⏰ Deadline</option>
-        <option value="policy">📜 Policy</option>
+        <option value="general" selected><i class="fas fa-file-alt"></i> General</option>
+        <option value="event"><i class="fas fa-calendar-check"></i> Event</option>
+        <option value="deadline"><i class="fas fa-clock"></i> Deadline</option>
+        <option value="policy"><i class="fas fa-gavel"></i> Policy</option>
       </select>
 
       <label style="display:block;margin:14px 0 6px;font-weight:600;">Target Audience
         <span style="font-weight:400;font-size:12px;color:#888;">(org_codes comma-separated, blank = all)</span>
       </label>
-      <input type="text" id="annAudienceInput" placeholder="e.g. CSC,SSG,SC — leave blank for all orgs"
+      <input type="text" id="annAudienceInput" placeholder="e.g. CSC,SSG,SC — leave blank for all organizations"
         style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
 
       <label style="display:block;margin:14px 0 6px;font-weight:600;">Expiry Date
-        <span style="font-weight:400;font-size:12px;color:#888;">(optional — auto-hides after this date)</span>
+        <span style="font-weight:400;font-size:12px;color:#888;">(optional — automatically hides after this date)</span>
       </label>
       <input type="date" id="annExpiresInput"
         style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;">
 
       <label style="display:flex;align-items:center;gap:10px;margin-top:14px;cursor:pointer;font-weight:600;">
         <input type="checkbox" id="annPinnedInput" style="width:18px;height:18px;accent-color:#f59e0b;cursor:pointer;">
-        📌 Pin to top
-        <span style="font-weight:400;font-size:12px;color:#888;">(always shows first)</span>
+        <i class="fas fa-thumbtack" style="color:#f59e0b;"></i> Pin to top
+        <span style="font-weight:400;font-size:12px;color:#888;">(always displays first)</span>
       </label>
 
       <div class="modal-buttons" style="margin-top:16px;display:flex;gap:10px;">
@@ -319,7 +319,7 @@ while ($row = mysqli_fetch_assoc($result)) {
 <div id="deleteModal" class="modal" style="display:none;">
   <div class="modal-content" style="max-width:400px;">
     <h3 style="color:#c0392b;"><i class="fas fa-exclamation-triangle"></i> Delete Announcement</h3>
-    <p style="margin:14px 0;color:#555;">Are you sure you want to delete this announcement? This cannot be undone.</p>
+    <p style="margin:14px 0;color:#555;">Are you sure you want to delete this announcement? This action cannot be undone.</p>
     <input type="hidden" id="deleteTargetId" value="">
     <div style="display:flex;gap:10px;margin-top:16px;">
       <button class="save-btn" style="background:#e74c3c;" id="confirmDeleteBtn">
@@ -561,8 +561,8 @@ document.getElementById('announcementForm').addEventListener('submit', function(
           newItem.className = 'announcement-item' + (isPinned ? ' ann-pinned-admin' : '');
           newItem.id        = 'ann-' + data.id;
           const pinLabel    = isPinned ? '<div class="ann-pin-label"><i class="fas fa-thumbtack"></i> Pinned</div>' : '';
-          const expLabel    = data.expires_at ? `<small class="ann-expires-tag"><i class="fas fa-hourglass-end"></i> Expires ${data.expires_at}</small>` : '';
-          const audLabel    = data.audience   ? `<small class="ann-audience-tag"><i class="fas fa-users"></i> ${data.audience}</small>` : `<small style="color:#aaa;"><i class="fas fa-globe"></i> All orgs</small>`;
+          const expLabel    = data.expires_at ? `<small class="ann-expires-tag"><i class="fas fa-hourglass-half"></i> Expires ${data.expires_at}</small>` : '';
+          const audLabel    = data.audience   ? `<small class="ann-audience-tag"><i class="fas fa-users"></i> ${data.audience}</small>` : `<small style="color:#aaa;"><i class="fas fa-globe"></i> All organizations</small>`;
           newItem.innerHTML = `
             ${pinLabel}
             <div class="ann-item-header">
@@ -622,10 +622,10 @@ function showReceipts(id, title) {
       if (!data.success) { document.getElementById('receiptsList').innerHTML = 'Failed to load.'; return; }
       const pct = data.total > 0 ? Math.round((data.read / data.total) * 100) : 0;
       document.getElementById('receiptsHeading').textContent =
-        `"${title}" — ${data.read} of ${data.total} orgs read (${pct}%)`;
+        `"${title}" — ${data.read} of ${data.total} organizations read (${pct}%)`;
       document.getElementById('receiptsBar').style.width = pct + '%';
       if (data.readers.length === 0) {
-        document.getElementById('receiptsList').innerHTML = '<p style="color:#888;padding:10px 0;">No reads yet.</p>';
+        document.getElementById('receiptsList').innerHTML = '<p style="color:#888;padding:10px 0;">No reads recorded yet.</p>';
       } else {
         document.getElementById('receiptsList').innerHTML = data.readers.map(r =>
           `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;">

@@ -25,6 +25,7 @@ $notifications = $notifications ?? [];
   <a href="review.php" class="nav-link <?php echo $current_page === 'review' ? 'active' : ''; ?>" data-page="review"><i></i> <span>Review & Approval</span></a>
   <a href="archive.php" class="nav-link <?php echo $current_page === 'archive' ? 'active' : ''; ?>" data-page="archive"><i></i> <span>Document Archive</span></a>
   <a href="create_user.php" class="nav-link <?php echo $current_page === 'create_user' ? 'active' : ''; ?>" data-page="create_user"><i></i> <span>Create User</span></a>
+  <a href="accomplishments.php" class="nav-link <?php echo $current_page === 'accomplishments' ? 'active' : ''; ?>" data-page="accomplishments"><i></i> <span>Accomplishments</span></a>
   <div class="sidebar-footer">
     <a href="logout.php" class="logout-btn"><span>Logout</span></a>
   </div>
@@ -38,9 +39,9 @@ $notifications = $notifications ?? [];
     </div>
     <div class="topbar-right">
       <div class="notification-bell" onclick="toggleNotificationPanel()">
-        <span class="bell-icon">🔔</span>
-        <span class="notification-badge" id="notificationBadge"><?php echo $unread_count; ?></span>
-      </div>
+  <i class="fas fa-bell" style="font-size:1.7em;color:#2d3748;"></i>
+  <span class="notification-badge" id="notificationBadge"><?php echo $unread_count; ?></span>
+</div>
       <?php if (!empty($user_name)): ?>
         <div><?php echo htmlspecialchars($user_name); ?></div>
       <?php endif; ?>
@@ -50,25 +51,22 @@ $notifications = $notifications ?? [];
   <!-- NOTIFICATION PANEL -->
   <div id="notificationPanel" class="notification-panel">
     <div class="notification-header">
-      <h4>Notifications</h4>
-      <button class="close-notification" onclick="toggleNotificationPanel()">✕</button>
+      <h4><i class="fas fa-bell" style="color:#10b981;margin-right:6px;"></i> Pending Submissions</h4>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a href="review.php" style="font-size:0.78em;color:#10b981;font-weight:700;text-decoration:none;">View All</a>
+        <button class="close-notification" onclick="toggleNotificationPanel()">✕</button>
+      </div>
     </div>
-    <div class="notification-list">
-      <?php if (!empty($notifications)): ?>
-        <?php foreach ($notifications as $notif): ?>
-          <div class="notification-item">
-            <div class="notification-icon"><?php echo htmlspecialchars($notif['type'] === 'submission' ? '📋' : ($notif['type'] === 'approval' ? '✅' : '⚠️')); ?></div>
-            <div class="notification-content">
-              <p class="notification-title"><?php echo htmlspecialchars($notif['title'] ?? ''); ?></p>
-              <p class="notification-text"><?php echo htmlspecialchars($notif['message'] ?? ''); ?></p>
-              <span class="notification-time"><?php echo isset($notif['created_at']) ? timeAgo($notif['created_at']) : ''; ?></span>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <div class="notification-item">
-          <p style="text-align: center; color: #999;">No new notifications</p>
-        </div>
-      <?php endif; ?>
+    <div class="notification-list" id="notifList">
+      <div style="text-align:center;padding:20px;color:#aaa;">Loading…</div>
     </div>
   </div>
+  <style>
+  .notif-item { display:flex; gap:12px; padding:12px 16px; border-bottom:1px solid #f7f7f7; cursor:pointer; transition:background .15s; }
+  .notif-item:hover { background:#f7fffe; }
+  .notif-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:0.95em; flex-shrink:0; }
+  .notif-body { flex:1; min-width:0; }
+  .notif-title { font-weight:700; font-size:0.88em; color:#1a202c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .notif-org   { font-size:0.78em; color:#718096; margin:2px 0; }
+  .notif-meta  { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  </style>

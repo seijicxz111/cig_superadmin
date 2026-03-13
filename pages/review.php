@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     try {
         if ($action === 'approve') {
-            $db->update('submissions', ['status' => 'approved'], 'submission_id = ?', [$submission_id]);
+            $db->update('submissions', ['status' => 'in_review'], 'submission_id = ?', [$submission_id]);
             $db->insert('reviews', [
                 'submission_id' => $submission_id,
                 'reviewer_id'   => 1,
@@ -240,8 +240,15 @@ $user_name = $user['full_name'] ?? '';
       <div class="submission-detail-card">
         <div class="submission-header">
           <h3><?php echo htmlspecialchars($submission['title']); ?></h3>
-          <span class="status-badge <?php echo strtolower($submission['status']); ?>">
-            <i class="fas fa-check-circle"></i> <?php echo ucfirst($submission['status']); ?>
+          <?php
+            $st = $submission['status'];
+            $st_labels = ['pending'=>'Pending','in_review'=>'Forwarded to Admin','approved'=>'Approved (Final)','rejected'=>'Rejected','archived'=>'Archived'];
+            $st_icons  = ['pending'=>'clock','in_review'=>'paper-plane','approved'=>'check-circle','rejected'=>'ban','archived'=>'archive'];
+            $st_label  = $st_labels[$st] ?? ucfirst($st);
+            $st_icon   = $st_icons[$st]  ?? 'circle';
+          ?>
+          <span class="status-badge <?php echo strtolower($st); ?>">
+            <i class="fas fa-<?php echo $st_icon; ?>"></i> <?php echo $st_label; ?>
           </span>
         </div>
 
@@ -301,10 +308,10 @@ $user_name = $user['full_name'] ?? '';
       <div class="submission-actions-card">
         <div class="actions-header">
           <h3><i class="fas fa-check-double"></i> Review Actions</h3>
-          <p>Approve or reject this submission. Add optional feedback below.</p>
+          <p>Forward to Admin for final review, or reject this submission.</p>
         </div>
 
-        <?php if (in_array($submission['status'], ['pending', 'in_review'])): ?>
+        <?php if ($submission['status'] === 'pending'): ?>
         <form method="POST" style="margin-top:20px;">
           <input type="hidden" name="submission_id" value="<?php echo $submission['submission_id']; ?>">
           <div style="margin-bottom:14px;">
@@ -317,8 +324,9 @@ $user_name = $user['full_name'] ?? '';
           </div>
           <div class="actions-buttons">
             <button type="submit" name="action" value="approve"
-              style="padding:12px 28px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.95em;display:flex;align-items:center;gap:8px;transition:all .2s;">
-              <i class="fas fa-check"></i> Approve
+              onclick="return confirm('Forward this submission to Admin for final review?')"
+              style="padding:12px 28px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.95em;display:flex;align-items:center;gap:8px;transition:all .2s;">
+              <i class="fas fa-paper-plane"></i> Forward to Admin
             </button>
             <button type="submit" name="action" value="reject"
               style="padding:12px 28px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.95em;display:flex;align-items:center;gap:8px;transition:all .2s;">
@@ -333,11 +341,20 @@ $user_name = $user['full_name'] ?? '';
 
         <?php else: ?>
         <div class="actions-buttons" style="margin-top:20px;">
+          <?php
+            $st = $submission['status'];
+            $st_cfg = [
+              'in_review' => ['bg'=>'#dbeafe','color'=>'#1d4ed8','icon'=>'paper-plane','label'=>'Forwarded to Admin — Pending Final Review'],
+              'approved'  => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'check-circle','label'=>'Approved (Final)'],
+              'rejected'  => ['bg'=>'#fee2e2','color'=>'#991b1b','icon'=>'ban','label'=>'Rejected'],
+            ];
+            $cfg = $st_cfg[$st] ?? ['bg'=>'#f0f0f0','color'=>'#4a5568','icon'=>'circle','label'=>ucfirst($st)];
+          ?>
           <span style="padding:10px 18px;border-radius:10px;font-weight:700;font-size:0.9em;
-            background:<?php echo $submission['status']==='approved' ? '#d1fae5' : '#fee2e2'; ?>;
-            color:<?php echo $submission['status']==='approved' ? '#065f46' : '#991b1b'; ?>;">
-            <i class="fas fa-<?php echo $submission['status']==='approved' ? 'check-circle' : 'ban'; ?>"></i>
-            This submission has been <?php echo ucfirst($submission['status']); ?>
+            background:<?php echo $cfg['bg']; ?>;color:<?php echo $cfg['color']; ?>;
+            display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-<?php echo $cfg['icon']; ?>"></i>
+            <?php echo $cfg['label']; ?>
           </span>
           <a href="review.php?org=<?php echo $selected_org_id; ?>"
             style="padding:12px 28px;background:#f0f0f0;color:#4a5568;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.95em;display:flex;align-items:center;gap:8px;">
@@ -406,7 +423,11 @@ $user_name = $user['full_name'] ?? '';
                 <tr>
                   <td class="ref-number">#<?php echo str_pad($index + 1, 3, '0', STR_PAD_LEFT); ?></td>
                   <td class="title-cell"><strong><?php echo htmlspecialchars($sub['title']); ?></strong></td>
-                  <td><span class="status-badge <?php echo strtolower($sub['status']); ?>"><i class="fas fa-check-circle"></i> <?php echo ucfirst($sub['status']); ?></span></td>
+                  <td><?php
+                    $s = $sub['status'];
+                    $sl = ['pending'=>'Pending','in_review'=>'Forwarded','approved'=>'Approved','rejected'=>'Rejected','archived'=>'Archived'];
+                    $si = ['pending'=>'clock','in_review'=>'paper-plane','approved'=>'check-circle','rejected'=>'ban','archived'=>'archive'];
+                  ?><span class="status-badge <?php echo strtolower($s); ?>"><i class="fas fa-<?php echo $si[$s]??'circle'; ?>"></i> <?php echo $sl[$s]??ucfirst($s); ?></span></td>
                   <td><?php echo htmlspecialchars($sub['submitted_by_name'] ?? 'N/A'); ?></td>
                   <td><?php echo date('M d, Y', strtotime($sub['submitted_at'])); ?></td>
                   <td class="review-count"><span class="badge-count"><?php echo $sub['review_count'] ?? 0; ?></span></td>
@@ -1342,6 +1363,11 @@ $user_name = $user['full_name'] ?? '';
 .status-badge.approved {
   background: #d1fae5;
   color: #065f46;
+}
+
+.status-badge.in_review {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .status-badge.pending {
