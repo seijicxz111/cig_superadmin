@@ -129,7 +129,7 @@ $users_result = $conn->query("SELECT user_id, username, email, full_name, role, 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create User — CIG System</title>
+  <title>Account Management — CIG System</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/navbar.css">
   <link rel="stylesheet" href="../css/components.css">
